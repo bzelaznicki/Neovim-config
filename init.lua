@@ -670,33 +670,31 @@ require('lazy').setup({
       --  - capabilities (table): Override fields in capabilities. Can be used to disable certain LSP features.
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
+
+      local util = require('lspconfig').util
+
       local servers = {
-        -- clangd = {},
-        -- gopls = {},
-        -- pyright = {},
-        -- rust_analyzer = {},
-        -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
-        --
-        -- Some languages (like typescript) have entire language plugins that can be useful:
-        --    https://github.com/pmizio/typescript-tools.nvim
-        --
-        -- But for many setups, the LSP (`ts_ls`) will work just fine
-        -- ts_ls = {},
-        --
+        denols = {
+          single_file_support = false,
+          root_dir = util.root_pattern('deno.json', 'deno.jsonc'),
+          settings = {},
+        },
+
+        ts_ls = {
+          single_file_support = false,
+          root_dir = function(fname)
+            -- never start in a Deno project
+            if util.root_pattern('deno.json', 'deno.jsonc')(fname) then
+              return nil
+            end
+            -- require a real Node/TS root (NO `.git` here)
+            return util.root_pattern('package.json', 'tsconfig.json', 'jsconfig.json')(fname)
+          end,
+          -- settings = { ... } -- optional
+        },
 
         lua_ls = {
-          -- cmd = { ... },
-          -- filetypes = { ... },
-          -- capabilities = {},
-          settings = {
-            Lua = {
-              completion = {
-                callSnippet = 'Replace',
-              },
-              -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
-              -- diagnostics = { disable = { 'missing-fields' } },
-            },
-          },
+          settings = { Lua = { completion = { callSnippet = 'Replace' } } },
         },
       }
 
@@ -733,6 +731,29 @@ require('lazy').setup({
           end,
         },
       }
+
+      vim.api.nvim_create_autocmd('LspAttach', {
+        callback = function(args)
+          local client = vim.lsp.get_client_by_id(args.data.client_id)
+          if not client then
+            return
+          end
+          local fname = vim.api.nvim_buf_get_name(args.buf)
+          local is_deno = util.root_pattern('deno.json', 'deno.jsonc')(fname) ~= nil
+          local is_node = (not is_deno) and util.root_pattern('package.json', 'tsconfig.json', 'jsconfig.json')(fname) ~= nil
+
+          -- kill wrong server if it slipped through
+          if client.name == 'denols' and not is_deno then
+            vim.schedule(function()
+              vim.lsp.stop_client(client.id)
+            end)
+          elseif client.name == 'ts_ls' and (is_deno or not is_node) then
+            vim.schedule(function()
+              vim.lsp.stop_client(client.id)
+            end)
+          end
+        end,
+      })
     end,
   },
 
@@ -984,7 +1005,7 @@ require('lazy').setup({
   --    This is the easiest way to modularize your config.
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  -- { import = 'custom.plugins' },
+  { import = 'custom.plugins' },
   --
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
   -- Or use telescope!
