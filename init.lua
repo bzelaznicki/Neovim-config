@@ -626,12 +626,10 @@ require('lazy').setup({
         end,
       })
 
-      -- Diagnostic Config
-      -- See :help vim.diagnostic.Opts
+      -- Diagnostic Config (hover-friendly): no inline text, smart floats
       vim.diagnostic.config {
-        severity_sort = true,
-        float = { border = 'rounded', source = 'if_many' },
-        underline = { severity = vim.diagnostic.severity.ERROR },
+        virtual_text = false, -- hide end-of-line text
+        underline = true,
         signs = vim.g.have_nerd_font and {
           text = {
             [vim.diagnostic.severity.ERROR] = '󰅚 ',
@@ -640,21 +638,61 @@ require('lazy').setup({
             [vim.diagnostic.severity.HINT] = '󰌶 ',
           },
         } or {},
-        virtual_text = {
+        severity_sort = true,
+        float = {
+          border = 'rounded',
           source = 'if_many',
-          spacing = 2,
-          format = function(diagnostic)
-            local diagnostic_message = {
-              [vim.diagnostic.severity.ERROR] = diagnostic.message,
-              [vim.diagnostic.severity.WARN] = diagnostic.message,
-              [vim.diagnostic.severity.INFO] = diagnostic.message,
-              [vim.diagnostic.severity.HINT] = diagnostic.message,
-            }
-            return diagnostic_message[diagnostic.severity]
-          end,
+          focusable = false,
+          close_events = { 'CursorMoved', 'InsertEnter', 'FocusLost' },
         },
       }
 
+      -- helpers
+      local function any_float_open()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          local cfg = vim.api.nvim_win_get_config(win)
+          if cfg and cfg.relative ~= '' then
+            return true
+          end
+        end
+        return false
+      end
+
+      local function has_diag_at_cursor(bufnr)
+        bufnr = bufnr or 0
+        local lnum, col = unpack(vim.api.nvim_win_get_cursor(0))
+        lnum = lnum - 1
+        for _, d in ipairs(vim.diagnostic.get(bufnr, { lnum = lnum })) do
+          if d.col and d.end_col and col >= d.col and col < d.end_col then
+            return true
+          end
+        end
+        return false
+      end
+
+      -- Show diagnostic float only when there's a diagnostic *at* the cursor,
+      -- and only if no other float (e.g. hover) is open.
+      vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
+        group = vim.api.nvim_create_augroup('diag_float_on_hold', { clear = true }),
+        callback = function()
+          if any_float_open() then
+            return
+          end
+          if not has_diag_at_cursor(0) then
+            return
+          end
+          vim.diagnostic.open_float(nil, { scope = 'cursor', focus = false })
+        end,
+      })
+
+      -- Smart K: show diagnostic if cursor is on one; otherwise show hover docs
+      vim.keymap.set('n', 'K', function()
+        if has_diag_at_cursor(0) then
+          vim.diagnostic.open_float(nil, { scope = 'cursor', focus = true })
+        else
+          vim.lsp.buf.hover()
+        end
+      end, { desc = 'Hover (or diagnostic if on problem)' })
       -- LSP servers and clients are able to communicate to each other what features they support.
       --  By default, Neovim doesn't support everything that is in the LSP specification.
       --  When you add blink.cmp, luasnip, etc. Neovim now has *more* capabilities.
