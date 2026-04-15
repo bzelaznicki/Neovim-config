@@ -727,8 +727,67 @@ require('lazy').setup({
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
 
       local util = require('lspconfig').util
+      local uv = vim.uv or vim.loop
+      local is_windows = vim.fn.has 'win32' == 1
+
+      local function path_exists(path)
+        return path and uv.fs_stat(path) ~= nil
+      end
+
+      local function get_python_path(workspace)
+        workspace = workspace or vim.fn.getcwd()
+        local python_dir = is_windows and 'Scripts' or 'bin'
+        local python_name = is_windows and 'python.exe' or 'python'
+
+        local candidates = {
+          util.path.join(workspace, '.venv', python_dir, python_name),
+          util.path.join(workspace, 'venv', python_dir, python_name),
+        }
+
+        if vim.env.VIRTUAL_ENV then
+          table.insert(candidates, util.path.join(vim.env.VIRTUAL_ENV, python_dir, python_name))
+        end
+
+        for _, path in ipairs(candidates) do
+          if path_exists(path) then
+            return path
+          end
+        end
+
+        local python = vim.fn.exepath 'python3'
+        if python ~= '' then
+          return python
+        end
+
+        python = vim.fn.exepath 'python'
+        if python ~= '' then
+          return python
+        end
+
+        return 'python'
+      end
 
       local servers = {
+        basedpyright = {
+          root_dir = function(fname)
+            return util.root_pattern('pyproject.toml', 'uv.lock', 'setup.py', 'setup.cfg', 'requirements.txt', '.git')(fname)
+          end,
+          settings = {
+            basedpyright = {
+              analysis = {
+                autoImportCompletions = true,
+                autoSearchPaths = true,
+                diagnosticMode = 'openFilesOnly',
+                useLibraryCodeForTypes = true,
+              },
+            },
+          },
+          on_new_config = function(new_config, root_dir)
+            new_config.settings = new_config.settings or {}
+            new_config.settings.python = new_config.settings.python or {}
+            new_config.settings.python.pythonPath = get_python_path(root_dir)
+          end,
+        },
         denols = {
           single_file_support = false,
           root_dir = util.root_pattern('deno.json', 'deno.jsonc'),
@@ -1032,6 +1091,7 @@ require('lazy').setup({
         'query',
         'vim',
         'vimdoc',
+        'python',
         'javascript',
         'typescript',
         'tsx',
