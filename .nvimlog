@@ -1,1 +1,5 @@
 WRN 2026-04-15T16:48:58.499 ?.83727    server_start:199: Failed to start server: operation not permitted: /var/folders/sf/kywcnr1578s74k2fgthd14vw0000gq/T/nvim.bzelaznicki/W9skhX/nvim.83727.0
+WRN 2026-04-21T15:25:17.063 ?.3792     server_start:199: Failed to start server: operation not permitted: /var/folders/sf/kywcnr1578s74k2fgthd14vw0000gq/T/nvim.bzelaznicki/qfjgyr/nvim.3792.0
+WRN 2026-04-21T15:25:36.195 ?.4045     server_start:199: Failed to start server: operation not permitted: /var/folders/sf/kywcnr1578s74k2fgthd14vw0000gq/T/nvim.bzelaznicki/NeD0XD/nvim.4045.0
+WRN 2026-04-21T15:27:45.720 ?.5891     server_start:199: Failed to start server: operation not permitted: /var/folders/sf/kywcnr1578s74k2fgthd14vw0000gq/T/nvim.bzelaznicki/nsEV39/nvim.5891.0
+WRN 2026-04-21T15:30:39.213 ?.10063    server_start:199: Failed to start server: operation not permitted: /var/folders/sf/kywcnr1578s74k2fgthd14vw0000gq/T/nvim.bzelaznicki/Bq46xG/nvim.10063.0

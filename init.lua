@@ -882,7 +882,9 @@ require('lazy').setup({
       {
         '<leader>f',
         function()
-          require('conform').format { async = true, lsp_format = 'fallback' }
+          local bufnr = vim.api.nvim_get_current_buf()
+          local lsp_format = vim.bo[bufnr].filetype == 'html' and 'never' or 'fallback'
+          require('conform').format { async = true, lsp_format = lsp_format }
         end,
         mode = '',
         desc = '[F]ormat buffer',
@@ -898,13 +900,35 @@ require('lazy').setup({
         if disable_filetypes[vim.bo[bufnr].filetype] then
           return nil
         else
+          -- HTML is formatted with prettier to avoid the LSP's aggressive tag wrapping.
+          local filetype = vim.bo[bufnr].filetype
+          local lsp_format = filetype == 'html' and 'never' or 'fallback'
+          local timeout_ms = filetype == 'html' and 3000 or 500
           return {
-            timeout_ms = 500,
-            lsp_format = 'fallback',
+            timeout_ms = timeout_ms,
+            lsp_format = lsp_format,
           }
         end
       end,
+      formatters = {
+        prettier_html = function()
+          local prettier = require 'conform.formatters.prettier'
+          local util = require 'conform.util'
+          local extra_args = {
+            '--print-width',
+            '200',
+            '--embedded-language-formatting',
+            'off',
+          }
+
+          return vim.tbl_deep_extend('force', prettier, {
+            args = util.extend_args(prettier.args, extra_args, { append = true }),
+            range_args = util.extend_args(prettier.range_args, extra_args, { append = true }),
+          })
+        end,
+      },
       formatters_by_ft = {
+        html = { 'prettier_html' },
         lua = { 'stylua' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
