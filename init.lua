@@ -1007,6 +1007,7 @@ require('lazy').setup({
         --
         -- See :h blink-cmp-config-keymap for defining your own keymap
         preset = 'super-tab',
+        ['<CR>'] = { 'accept', 'fallback' },
 
         -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
         --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
@@ -1111,13 +1112,15 @@ require('lazy').setup({
   },
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    branch = 'main',
     build = ':TSUpdate',
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
+    lazy = false,
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
-    opts = {
-      ensure_installed = {
+    config = function()
+      local languages = {
         'bash',
         'c',
+        'c_sharp',
         'diff',
         'html',
         'lua',
@@ -1133,18 +1136,25 @@ require('lazy').setup({
         'tsx',
         'json',
         'css',
-      },
-      -- Autoinstall languages that are not installed
-      auto_install = true,
-      highlight = {
-        enable = true,
-        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
-        --  If you are experiencing weird indenting issues, add the language to
-        --  the list of additional_vim_regex_highlighting and disabled languages for indent.
-        additional_vim_regex_highlighting = { 'ruby' },
-      },
-      indent = { enable = true, disable = { 'ruby' } },
-    },
+      }
+
+      require('nvim-treesitter').setup()
+      local installed = require('nvim-treesitter').get_installed 'parsers'
+      local missing = vim.tbl_filter(function(lang)
+        return not vim.list_contains(installed, lang)
+      end, languages)
+      if #missing > 0 then
+        require('nvim-treesitter').install(missing, { max_jobs = 1 }):wait(300000)
+      end
+
+      vim.api.nvim_create_autocmd('FileType', {
+        group = vim.api.nvim_create_augroup('kickstart-treesitter-start', { clear = true }),
+        pattern = '*',
+        callback = function()
+          pcall(vim.treesitter.start)
+        end,
+      })
+    end,
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:
     --
