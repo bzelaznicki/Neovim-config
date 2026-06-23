@@ -871,11 +871,11 @@ require('lazy').setup({
           -- kill wrong server if it slipped through
           if client.name == 'denols' and not is_deno then
             vim.schedule(function()
-              vim.lsp.stop_client(client.id)
+              client:stop()
             end)
           elseif client.name == 'ts_ls' and (is_deno or not is_node) then
             vim.schedule(function()
-              vim.lsp.stop_client(client.id)
+              client:stop()
             end)
           end
         end,
