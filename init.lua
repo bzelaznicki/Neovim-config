@@ -816,8 +816,18 @@ require('lazy').setup({
         },
 
         intelephense = {
+          root_dir = function(bufnr, on_dir)
+            local fname = vim.api.nvim_buf_get_name(bufnr)
+            if fname == nil or fname == '' then
+              return
+            end
+            on_dir(util.root_pattern('composer.json', 'composer.lock', '.git', 'index.php')(fname) or util.path.dirname(fname))
+          end,
           settings = {
             intelephense = {
+              diagnostics = {
+                undefinedVariables = 'local',
+              },
               environment = {
                 phpVersion = '8.5.0',
               },
