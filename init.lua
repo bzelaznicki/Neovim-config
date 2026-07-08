@@ -815,6 +815,16 @@ require('lazy').setup({
           -- settings = { ... } -- optional
         },
 
+        intelephense = {
+          settings = {
+            intelephense = {
+              environment = {
+                phpVersion = '8.5.0',
+              },
+            },
+          },
+        },
+
         lua_ls = {
           settings = { Lua = { completion = { callSnippet = 'Replace' } } },
         },
@@ -840,22 +850,19 @@ require('lazy').setup({
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
+      local enabled_servers = vim.tbl_keys(servers or {})
+
+      for server_name, server in pairs(servers) do
+        -- This handles overriding only values explicitly passed by the server
+        -- configuration above. Useful when disabling certain LSP features.
+        server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+        vim.lsp.config(server_name, server)
+      end
+      vim.lsp.enable(enabled_servers)
+
       require('mason-lspconfig').setup {
         ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-        automatic_installation = false,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name]
-            if not server then
-              return
-            end
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
-        },
+        automatic_enable = false,
       }
 
       vim.api.nvim_create_autocmd('LspAttach', {
@@ -1131,6 +1138,7 @@ require('lazy').setup({
         'vim',
         'vimdoc',
         'python',
+        'php',
         'javascript',
         'typescript',
         'tsx',
@@ -1138,13 +1146,25 @@ require('lazy').setup({
         'css',
       }
 
-      require('nvim-treesitter').setup()
-      local installed = require('nvim-treesitter').get_installed 'parsers'
-      local missing = vim.tbl_filter(function(lang)
-        return not vim.list_contains(installed, lang)
-      end, languages)
-      if #missing > 0 then
-        require('nvim-treesitter').install(missing, { max_jobs = 1 }):wait(300000)
+      local treesitter = require 'nvim-treesitter'
+      treesitter.setup()
+
+      if treesitter.get_installed and treesitter.install then
+        local installed = treesitter.get_installed 'parsers'
+        local missing = vim.tbl_filter(function(lang)
+          return not vim.list_contains(installed, lang)
+        end, languages)
+        if #missing > 0 then
+          treesitter.install(missing, { max_jobs = 1 }):wait(300000)
+        end
+      else
+        local installed = require('nvim-treesitter.info').installed_parsers()
+        local missing = vim.tbl_filter(function(lang)
+          return not vim.list_contains(installed, lang)
+        end, languages)
+        if #missing > 0 then
+          require('nvim-treesitter.install').ensure_installed(missing)
+        end
       end
 
       vim.api.nvim_create_autocmd('FileType', {
