@@ -807,16 +807,42 @@ require('lazy').setup({
         },
 
         ts_ls = {
-          single_file_support = false,
-          root_dir = function(fname)
-            -- never start in a Deno project
-            if util.root_pattern('deno.json', 'deno.jsonc')(fname) then
-              return nil
-            end
-            -- require a real Node/TS root (NO `.git` here)
-            return util.root_pattern('package.json', 'tsconfig.json', 'jsconfig.json')(fname)
-          end,
-          -- settings = { ... } -- optional
+          -- The default ts_ls root finder handles Node monorepos and excludes
+          -- nested Deno projects. Keep single-file support for scratch files.
+          single_file_support = true,
+          init_options = {
+            hostInfo = 'neovim',
+            preferences = {
+              completeFunctionCalls = true,
+              includeCompletionsForImportStatements = true,
+              includeCompletionsForModuleExports = true,
+              includeInlayEnumMemberValueHints = true,
+              includeInlayFunctionLikeReturnTypeHints = true,
+              includeInlayFunctionParameterTypeHints = true,
+              includeInlayParameterNameHints = 'literals',
+              includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+              includeInlayPropertyDeclarationTypeHints = true,
+              includeInlayVariableTypeHints = true,
+              includeInlayVariableTypeHintsWhenTypeMatchesName = false,
+            },
+          },
+        },
+
+        -- Laravel-aware completion, navigation, and diagnostics for both PHP
+        -- source files and Blade templates. It only starts in projects that
+        -- contain an `artisan` file.
+        laravel_ls = {},
+
+        -- Blade is primarily an HTML template language. Keep Laravel-specific
+        -- completion above, and use the HTML server for tags and attributes.
+        -- Formatting stays with Conform because the HTML formatter does not
+        -- understand Blade directives.
+        html = {
+          filetypes = { 'html', 'blade' },
+          root_markers = { 'package.json', 'composer.json', 'artisan', '.git' },
+          init_options = {
+            provideFormatter = false,
+          },
         },
 
         intelephense = {
@@ -887,14 +913,13 @@ require('lazy').setup({
           end
           local fname = vim.api.nvim_buf_get_name(args.buf)
           local is_deno = util.root_pattern('deno.json', 'deno.jsonc')(fname) ~= nil
-          local is_node = (not is_deno) and util.root_pattern('package.json', 'tsconfig.json', 'jsconfig.json')(fname) ~= nil
 
           -- kill wrong server if it slipped through
           if client.name == 'denols' and not is_deno then
             vim.schedule(function()
               client:stop()
             end)
-          elseif client.name == 'ts_ls' and (is_deno or not is_node) then
+          elseif client.name == 'ts_ls' and is_deno then
             vim.schedule(function()
               client:stop()
             end)
@@ -1041,9 +1066,9 @@ require('lazy').setup({
       },
 
       completion = {
-        -- By default, you may press `<c-space>` to show the documentation.
-        -- Optionally, set `auto_show = true` to show the documentation after a delay.
-        documentation = { auto_show = false, auto_show_delay_ms = 500 },
+        -- Show completion documentation automatically, while `<c-space>` still
+        -- opens it immediately.
+        documentation = { auto_show = true, auto_show_delay_ms = 500 },
       },
 
       sources = {
