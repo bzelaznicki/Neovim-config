@@ -780,6 +780,8 @@ require('lazy').setup({
       end
 
       local servers = {
+        gopls = {},
+
         basedpyright = {
           root_dir = function(fname)
             return util.root_pattern('pyproject.toml', 'uv.lock', 'setup.py', 'setup.cfg', 'requirements.txt', '.git')(fname)
@@ -1165,9 +1167,11 @@ require('lazy').setup({
     config = function()
       local languages = {
         'bash',
+        'blade',
         'c',
         'c_sharp',
         'diff',
+        'go',
         'html',
         'lua',
         'luadoc',
